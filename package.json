@@ -1,0 +1,46 @@
+{
+  "name": "mcp-production-kit",
+  "version": "0.1.0",
+  "description": "Production-ready TypeScript MCP server template — Streamable HTTP, OAuth 2.1 resource server, per-tool RBAC, append-only audit logging, rate limits, EU (Hetzner) deployment.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.10.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Lumina-AI-studio/mcp-production-kit.git"
+  },
+  "homepage": "https://github.com/Lumina-AI-studio/mcp-production-kit#readme",
+  "bugs": "https://github.com/Lumina-AI-studio/mcp-production-kit/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "example:up": "echo 'example:up arrives in M3 (Supabase demo SaaS)' && exit 1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^10.6.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.63.0",
+    "vitest": "^4.1.10"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "mcp-server",
+    "oauth2",
+    "rbac",
+    "audit-log",
+    "template",
+    "typescript"
+  ]
+}
