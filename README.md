@@ -27,9 +27,12 @@ tool marketplace. One server, one SaaS, done well.
 
 ## Status
 
-Early — M0 (scaffold) of the [roadmap](docs/ROADMAP.md). The layout below is
-in place; core server + audit (M1), OAuth 2.1 + RBAC (M2), and the runnable
-example (M3) are landing next.
+Early — M1 of the [roadmap](docs/ROADMAP.md) is done: the Streamable HTTP
+server runs, every tool call is audited (stdout JSON + Postgres sink), health
+endpoints and the Hetzner deploy path are in place. OAuth 2.1 + RBAC against
+a real IdP (M2) and the runnable example (M3) are next — until M2 lands,
+scopes come from the `DEV_GRANTED_SCOPES` dev-only escape hatch, so don't
+point this at production data yet.
 
 ## Layout
 

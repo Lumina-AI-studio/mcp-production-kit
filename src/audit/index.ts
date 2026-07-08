@@ -14,6 +14,7 @@ export interface AuditEvent {
   status: 'ok' | 'error' | 'denied';
   latencyMs: number;
   traceId: string;
+  sessionId?: string | undefined;
 }
 
 /** Deterministic SHA-256 over canonicalized (key-sorted) JSON args. */
