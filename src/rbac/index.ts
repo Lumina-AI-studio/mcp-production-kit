@@ -6,9 +6,20 @@
  * A caller must hold every scope the tool requires.
  */
 
+import type { ToolDefinition } from '../tools/index.js';
+
 export type Scope = string;
 
 export type ScopeMap = Readonly<Record<string, readonly Scope[]>>;
+
+/**
+ * The scope map is derived from tool definitions — `requiredScopes` on the
+ * tool is the single source of truth, so a tool cannot exist without its
+ * mapping (hard rule: never ship a tool without a scope mapping).
+ */
+export function scopeMapFromTools(tools: readonly ToolDefinition[]): ScopeMap {
+  return Object.fromEntries(tools.map((t) => [t.name, t.requiredScopes]));
+}
 
 export function isToolAllowed(
   scopeMap: ScopeMap,

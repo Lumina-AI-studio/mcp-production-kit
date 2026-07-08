@@ -1,0 +1,40 @@
+# Local/production-ish stack: server + Postgres audit store.
+# From the repo root:  docker compose -f deploy/docker-compose.yml up --build
+
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      HOST: 0.0.0.0
+      PORT: '3000'
+      AUDIT_DATABASE_URL: postgres://mcp:mcp@audit-db:5432/mcp_audit
+      # Host header allowlist — replace with your public hostname in production.
+      MCP_ALLOWED_HOSTS: 'localhost:3000,127.0.0.1:3000'
+      # M1 dev-only escape hatch until OAuth lands in M2. Remove in production.
+      DEV_GRANTED_SCOPES: 'status:read'
+    depends_on:
+      audit-db:
+        condition: service_healthy
+
+  audit-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: mcp
+      POSTGRES_DB: mcp_audit
+    volumes:
+      - audit-data:/var/lib/postgresql/data
+      # Migrations run automatically on first boot:
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mcp -d mcp_audit']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  audit-data:

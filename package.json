@@ -17,6 +17,8 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "dev": "pnpm build && DEV_GRANTED_SCOPES=status:read node dist/main.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
@@ -24,10 +26,14 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "pg": "^8.22.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "eslint": "^10.6.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.63.0",
