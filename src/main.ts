@@ -1,3 +1,4 @@
+import { buildAuthContext } from './auth/index.js';
 import { MultiSink, PostgresAuditSink, StdoutJsonSink, type AuditSink } from './audit/sink.js';
 import { loadConfig } from './config.js';
 import { createApp } from './server.js';
@@ -19,7 +20,18 @@ if (config.auditDatabaseUrl) {
 }
 const sink = new MultiSink(sinks);
 
-const { app, closeSessions } = createApp({ registry: defaultRegistry, sink, config });
+const auth = await buildAuthContext(config);
+if (auth) {
+  process.stderr.write(
+    `OAuth 2.1 resource server enabled: issuer=${config.authIssuer} resource=${config.resourceUrl}\n`,
+  );
+} else {
+  process.stderr.write(
+    'AUTH_ISSUER not set — running UNPROTECTED in dev mode with DEV_GRANTED_SCOPES. Never expose this to a network.\n',
+  );
+}
+
+const { app, closeSessions } = createApp({ registry: defaultRegistry, sink, config, auth });
 
 const httpServer = app.listen(config.port, config.host, () => {
   process.stderr.write(

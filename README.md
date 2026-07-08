@@ -27,19 +27,20 @@ tool marketplace. One server, one SaaS, done well.
 
 ## Status
 
-Early — M1 of the [roadmap](docs/ROADMAP.md) is done: the Streamable HTTP
-server runs, every tool call is audited (stdout JSON + Postgres sink), health
-endpoints and the Hetzner deploy path are in place. OAuth 2.1 + RBAC against
-a real IdP (M2) and the runnable example (M3) are next — until M2 lands,
-scopes come from the `DEV_GRANTED_SCOPES` dev-only escape hatch, so don't
-point this at production data yet.
+M2 of the [roadmap](docs/ROADMAP.md) is done. The server runs as an OAuth 2.1
+**resource server** per the current MCP auth spec (2025-11-25): RFC 9728
+protected-resource metadata, JWKS token validation with audience binding,
+token scopes driving deny-by-default per-tool RBAC — and every call (allowed,
+failed, or denied) lands in the append-only audit log. Keycloak is the
+default IdP ([adapters/keycloak](adapters/keycloak/README.md)); Auth0 mapping
+included. The runnable Supabase example (M3) is next.
 
 ## Layout
 
 ```
 src/server.ts        Streamable HTTP transport, session handling      (M1)
 src/tools/           tool registry — zod schemas, task-oriented tools
-src/auth/            OAuth 2.1 resource server                        (M2)
+src/auth/            OAuth 2.1 resource server (JWKS, audience binding)
 src/rbac/            per-tool scope map, deny-by-default
 src/audit/           structured audit middleware, append-only sink
 src/rate-limit/      per-client + per-tool limits                     (M3)

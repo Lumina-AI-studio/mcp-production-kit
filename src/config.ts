@@ -27,6 +27,20 @@ const envSchema = z.object({
    * "mcp.example.com,127.0.0.1:3000". Defaults to localhost forms.
    */
   MCP_ALLOWED_HOSTS: z.string().optional(),
+  /**
+   * OAuth 2.1 authorization server issuer URL (e.g. the Keycloak realm URL).
+   * Setting this turns the server into a protected resource: Bearer tokens
+   * required on /mcp, RFC 9728 metadata served, DEV_GRANTED_SCOPES ignored.
+   */
+  AUTH_ISSUER: z.string().url().optional(),
+  /**
+   * Canonical URI of THIS server (RFC 8707 resource identifier), e.g.
+   * "https://mcp.example.com/mcp". Required with AUTH_ISSUER; tokens must
+   * carry it as audience. Lowercase scheme/host, no fragment, no trailing /.
+   */
+  MCP_RESOURCE_URL: z.string().url().optional(),
+  /** Override the JWKS URL (defaults to jwks_uri from AS discovery). */
+  AUTH_JWKS_URL: z.string().url().optional(),
 });
 
 export interface Config {
@@ -35,6 +49,9 @@ export interface Config {
   auditDatabaseUrl: string | undefined;
   devGrantedScopes: string[];
   allowedHosts: string[];
+  authIssuer: string | undefined;
+  resourceUrl: string | undefined;
+  authJwksUrl: string | undefined;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -47,5 +64,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     allowedHosts: parsed.MCP_ALLOWED_HOSTS
       ? csv(parsed.MCP_ALLOWED_HOSTS)
       : ['127.0.0.1', 'localhost', `127.0.0.1:${parsed.PORT}`, `localhost:${parsed.PORT}`],
+    authIssuer: parsed.AUTH_ISSUER,
+    resourceUrl: parsed.MCP_RESOURCE_URL,
+    authJwksUrl: parsed.AUTH_JWKS_URL,
   };
 }
