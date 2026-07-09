@@ -1,8 +1,14 @@
 import { randomUUID } from 'node:crypto';
+import { requireBearerAuth } from '@modelcontextprotocol/sdk/server/auth/middleware/bearerAuth.js';
+import {
+  getOAuthProtectedResourceMetadataUrl,
+  mcpAuthMetadataRouter,
+} from '@modelcontextprotocol/sdk/server/auth/router.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import express, { type Express, type Request, type Response } from 'express';
+import type { AuthContext } from './auth/index.js';
 import { executeTool } from './audit/execute.js';
 import type { AuditSink } from './audit/sink.js';
 import type { Config } from './config.js';
@@ -15,6 +21,8 @@ export interface ServerDeps {
   registry: ToolRegistry;
   sink: AuditSink;
   config: Config;
+  /** OAuth 2.1 resource-server context; absent = dev mode (M1 behavior). */
+  auth?: AuthContext | undefined;
 }
 
 /**
@@ -34,9 +42,13 @@ export function createMcpServer(deps: ServerDeps): McpServer {
         annotations: { readOnlyHint: tool.readOnly },
       },
       async (args: unknown, extra) => {
-        // M2 replaces this with identity/scopes from the validated token.
-        const actor = extra.authInfo?.clientId ?? 'anonymous';
-        const grantedScopes = extra.authInfo?.scopes ?? deps.config.devGrantedScopes;
+        // With auth on, identity/scopes come from the validated token only;
+        // the dev escape hatch exists solely when no issuer is configured.
+        const sub = extra.authInfo?.extra?.['sub'];
+        const actor =
+          (typeof sub === 'string' ? sub : undefined) ?? extra.authInfo?.clientId ?? 'anonymous';
+        const grantedScopes =
+          extra.authInfo?.scopes ?? (deps.auth ? [] : deps.config.devGrantedScopes);
 
         const outcome = await executeTool(
           tool,
@@ -73,6 +85,28 @@ export function createApp(deps: ServerDeps): RunningApp {
   app.use(express.json());
 
   const transports = new Map<string, StreamableHTTPServerTransport>();
+
+  if (deps.auth) {
+    // RFC 9728 Protected Resource Metadata (+ mirrored AS metadata) at
+    // /.well-known/…, and Bearer enforcement on the MCP endpoint. 401s carry
+    // WWW-Authenticate with resource_metadata per spec; health stays open.
+    const scopesSupported = [...new Set(deps.registry.list().flatMap((t) => t.requiredScopes))];
+    app.use(
+      mcpAuthMetadataRouter({
+        oauthMetadata: deps.auth.oauthMetadata,
+        resourceServerUrl: deps.auth.resourceServerUrl,
+        scopesSupported,
+        resourceName: SERVER_NAME,
+      }),
+    );
+    app.use(
+      '/mcp',
+      requireBearerAuth({
+        verifier: deps.auth.verifier,
+        resourceMetadataUrl: getOAuthProtectedResourceMetadataUrl(deps.auth.resourceServerUrl),
+      }),
+    );
+  }
 
   app.get('/healthz', (_req: Request, res: Response) => {
     res.json(healthPayload());

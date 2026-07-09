@@ -19,6 +19,9 @@ describe('Streamable HTTP server (end-to-end via SDK client)', () => {
     auditDatabaseUrl: undefined,
     devGrantedScopes: ['status:read'],
     allowedHosts: ['127.0.0.1', 'localhost'],
+    authIssuer: undefined,
+    resourceUrl: undefined,
+    authJwksUrl: undefined,
   };
 
   let running: RunningApp;
