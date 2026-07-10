@@ -29,6 +29,14 @@ export class PostgresAuditSink implements AuditSink {
 
   constructor(connectionString: string) {
     this.pool = new pg.Pool({ connectionString, max: 5 });
+    // node-postgres emits 'error' on the pool when an *idle* client's
+    // connection dies (DB restart, failover, network RST, idle timeout on
+    // managed Postgres). With no listener, Node throws it as an uncaught
+    // exception and the whole server crashes. Swallow it here — the next
+    // query transparently opens a fresh connection.
+    this.pool.on('error', (err: Error) => {
+      process.stderr.write(`${JSON.stringify({ auditPoolError: err.message })}\n`);
+    });
   }
 
   async write(event: AuditEvent): Promise<void> {

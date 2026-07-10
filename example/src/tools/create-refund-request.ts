@@ -21,8 +21,14 @@ interface RefundInsertRow {
  * `create_refund_request` [refunds:write] — WRITE tool. Requires an explicit
  * `confirm` payload restating the amount and reason so the agent has to
  * commit to exactly what it is about to do (docs/tool-design.md §2). Domain
- * rules: the order must exist and the refund cannot exceed the order total;
- * violations throw and are audited as status=error.
+ * rules: the order must exist and the refund — added to refunds already
+ * requested against the order — cannot exceed the order total; violations
+ * throw and are audited as status=error.
+ *
+ * Note: the "already refunded" sum and the insert are two statements, so two
+ * truly-simultaneous requests could still race past the limit. For a demo
+ * that's acceptable; a production tool would do it in one guarded statement
+ * or a transaction.
  */
 export function createRefundRequest(db: Db): ToolDefinition {
   return defineTool({
@@ -47,9 +53,20 @@ export function createRefundRequest(db: Db): ToolDefinition {
       if (!order) {
         throw new Error(`Order not found: ${orderId}`);
       }
-      if (confirm.amountCents > order.total_cents) {
+
+      // Sum refunds already requested against this order (anything not
+      // rejected) so repeated calls can't cumulatively exceed the total.
+      const priorResult = await db.query<{ sum: number }>(
+        `SELECT COALESCE(SUM(amount_cents), 0)::int AS sum
+           FROM refund_requests
+          WHERE order_id = $1 AND status <> 'rejected'`,
+        [orderId],
+      );
+      const alreadyRefunded = priorResult.rows[0]?.sum ?? 0;
+      if (alreadyRefunded + confirm.amountCents > order.total_cents) {
         throw new Error(
-          `Refund amount ${confirm.amountCents} exceeds order total ${order.total_cents}.`,
+          `Refund amount ${confirm.amountCents} plus ${alreadyRefunded} already requested ` +
+            `exceeds order total ${order.total_cents}.`,
         );
       }
 

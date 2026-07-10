@@ -183,8 +183,11 @@ describe('create_refund_request — schema & domain rules', () => {
     ).rejects.toThrow(/Order not found/);
   });
 
-  it('throws when the refund exceeds the order total', async () => {
-    const db = stubDb([{ rows: [{ id: 'ord_1001', total_cents: 5000 }] }]);
+  it('throws when a single refund exceeds the order total', async () => {
+    const db = stubDb([
+      { rows: [{ id: 'ord_1001', total_cents: 5000 }] },
+      { rows: [{ sum: 0 }] }, // nothing refunded yet
+    ]);
     await expect(
       createRefundRequest(db).handler(
         { orderId: 'ord_1001', confirm: { amountCents: 6000, reason: 'over the total' } },
@@ -193,9 +196,26 @@ describe('create_refund_request — schema & domain rules', () => {
     ).rejects.toThrow(/exceeds order total/);
   });
 
-  it('inserts a refund request within the total and records the actor', async () => {
+  it('throws when cumulative refunds would exceed the order total', async () => {
+    // Order total 10000, 8000 already requested; a further 3000 must fail.
+    const db = stubDb([
+      { rows: [{ id: 'ord_1001', total_cents: 10000 }] },
+      { rows: [{ sum: 8000 }] },
+    ]);
+    await expect(
+      createRefundRequest(db).handler(
+        { orderId: 'ord_1001', confirm: { amountCents: 3000, reason: 'second refund attempt' } },
+        ctx,
+      ),
+    ).rejects.toThrow(/already requested/);
+    // insert must NOT have run
+    expect(db.calls).toHaveLength(2);
+  });
+
+  it('inserts a refund request within the remaining total and records the actor', async () => {
     const db = stubDb([
       { rows: [{ id: 'ord_1001', total_cents: 12900 }] },
+      { rows: [{ sum: 2900 }] }, // one prior refund; 2900 + 2900 <= 12900
       { rows: [{ id: 'rr_new', order_id: 'ord_1001', amount_cents: 2900 }] },
     ]);
     const result = (await createRefundRequest(db).handler(
@@ -203,8 +223,8 @@ describe('create_refund_request — schema & domain rules', () => {
       ctx,
     )) as { refundRequest: { id: string } };
     expect(result.refundRequest.id).toBe('rr_new');
-    // actor threaded into requested_by
-    expect(db.calls[1]!.params).toContain('demo-agent');
+    // actor threaded into requested_by on the INSERT (third query)
+    expect(db.calls[2]!.params).toContain('demo-agent');
   });
 });
 
@@ -228,23 +248,27 @@ describe('cancel_order — schema & domain rules', () => {
   });
 
   it('throws when the order has already shipped', async () => {
-    const db = stubDb([{ rows: [{ id: 'ord_1003', status: 'shipped' }] }]);
+    // The conditional UPDATE matches no row; the diagnostic SELECT reveals why.
+    const db = stubDb([
+      { rows: [] },
+      { rows: [{ id: 'ord_1003', status: 'shipped' }] },
+    ]);
     await expect(
       cancelOrder(db).handler({ orderId: 'ord_1003', confirm: { reason: 'too late now' } }, ctx),
     ).rejects.toThrow(/cannot be cancelled/);
   });
 
-  it('cancels a placed order', async () => {
-    const db = stubDb([
-      { rows: [{ id: 'ord_1004', status: 'placed' }] },
-      { rows: [{ id: 'ord_1004', status: 'cancelled' }] },
-    ]);
+  it('cancels a placed order via a single conditional update', async () => {
+    const db = stubDb([{ rows: [{ id: 'ord_1004', status: 'cancelled' }] }]);
     const result = (await cancelOrder(db).handler(
       { orderId: 'ord_1004', confirm: { reason: 'customer changed mind' } },
       ctx,
     )) as { order: { status: string }; reason: string };
     expect(result.order.status).toBe('cancelled');
     expect(result.reason).toBe('customer changed mind');
+    // exactly one statement — the atomic UPDATE ... WHERE status IN (...)
+    expect(db.calls).toHaveLength(1);
+    expect(db.calls[0]!.sql).toMatch(/UPDATE orders/);
   });
 });
 
@@ -287,7 +311,10 @@ describe('example tools — audit coverage via executeTool', () => {
   });
 
   it('emits status=error when a domain rule throws', async () => {
-    const db = stubDb([{ rows: [{ id: 'ord_1001', total_cents: 5000 }] }]);
+    const db = stubDb([
+      { rows: [{ id: 'ord_1001', total_cents: 5000 }] },
+      { rows: [{ sum: 0 }] },
+    ]);
     const tool = createRefundRequest(db);
     const scopeMap = scopeMapFromTools([tool]);
     const sink = new InMemorySink();
