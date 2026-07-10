@@ -1,7 +1,8 @@
 # Tool design guide
 
-This is the differentiator of the template. Full guide lands alongside M3's
-example tools; the principles are binding from day one.
+This is the differentiator of the template. The
+[Nordwind example](../example/README.md) puts every principle here into
+practice.
 
 ## 1. Task-oriented tools, not CRUD dumps
 

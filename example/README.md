@@ -1,4 +1,4 @@
-# example — Nordwind demo SaaS (M3)
+# example — Nordwind demo SaaS
 
 A complete, runnable vertical slice of the template: a small B2B e-commerce
 ops SaaS ("Nordwind") exposed through **five task-oriented MCP tools**, behind
