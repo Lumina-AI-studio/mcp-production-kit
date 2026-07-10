@@ -1,0 +1,91 @@
+# `pnpm example:up` — the full Nordwind demo stack:
+#   Keycloak (OAuth 2.1 AS) + Postgres (audit + domain data) + the MCP server
+#   running the five example tools.
+#
+# From the repo root:  docker compose -f example/docker-compose.yml up --build
+#
+# Ports exposed on the host:
+#   8080  Keycloak admin console + realm (admin / admin — DEV ONLY)
+#         (override with KEYCLOAK_PORT=8081 if 8080 is taken on your machine)
+#   3000  MCP server (/mcp, /healthz, /readyz)
+# Postgres (5432) is intentionally NOT published — it is internal to the stack.
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ['start-dev', '--import-realm']
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Full-URL form so the issuer carries the host port even when remapped.
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-8080}
+    volumes:
+      # Realm import: the mcp-example realm with client scopes, audience
+      # mappers and the inspector/demo-agent clients.
+      - ./keycloak:/opt/keycloak/data/import:ro
+    ports:
+      - '${KEYCLOAK_PORT:-8080}:8080'
+    # This Keycloak image ships no curl/wget/healthcheck binary, so we probe the
+    # realm's OIDC discovery endpoint from bash via /dev/tcp + an HTTP GET. Only
+    # marked healthy once the realm import has finished and the AS is serving.
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /realms/mcp-example/.well-known/openid-configuration HTTP/1.0\r\nHost: localhost\r\n\r\n" >&3 && grep -q "jwks_uri" <&3',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+      start_period: 30s
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: mcp
+      POSTGRES_PASSWORD: mcp
+      POSTGRES_DB: mcp
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Both migration sets run once on first boot, in filename order:
+      #   00-audit-*  → the append-only audit_events table (shared base schema)
+      #   01-nordwind → the demo domain schema + seed data
+      - ../deploy/migrations/001_audit_events.sql:/docker-entrypoint-initdb.d/00-audit-001_audit_events.sql:ro
+      - ./db/001_schema.sql:/docker-entrypoint-initdb.d/01-nordwind-001_schema.sql:ro
+    # Not published to the host — internal to the compose network only.
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mcp -d mcp']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: example/Dockerfile
+    ports:
+      - '3000:3000'
+    environment:
+      HOST: 0.0.0.0
+      PORT: '3000'
+      # Public issuer (what clients see) vs internal issuer (how this container
+      # reaches Keycloak on the compose network). Token `iss` is validated
+      # against AUTH_ISSUER; discovery + JWKS are fetched via the internal URL.
+      AUTH_ISSUER: http://localhost:${KEYCLOAK_PORT:-8080}/realms/mcp-example
+      AUTH_INTERNAL_ISSUER_URL: http://keycloak:8080/realms/mcp-example
+      MCP_RESOURCE_URL: http://localhost:3000/mcp
+      MCP_ALLOWED_HOSTS: 'localhost:3000,127.0.0.1:3000'
+      AUDIT_DATABASE_URL: postgres://mcp:mcp@db:5432/mcp
+      EXAMPLE_DATABASE_URL: postgres://mcp:mcp@db:5432/mcp
+    depends_on:
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    # Belt-and-braces: even with the Keycloak healthcheck above, the server
+    # fetches OIDC discovery once at startup. If it ever races the AS, restart
+    # until discovery succeeds instead of leaving the stack half-up.
+    restart: on-failure
+
+volumes:
+  db-data:

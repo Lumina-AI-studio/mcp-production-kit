@@ -2,7 +2,7 @@ import type { OAuthTokenVerifier } from '@modelcontextprotocol/sdk/server/auth/p
 import type { OAuthMetadata } from '@modelcontextprotocol/sdk/shared/auth.js';
 import { createRemoteJWKSet } from 'jose';
 import type { Config } from '../config.js';
-import { discoverAuthServerMetadata, toOAuthMetadata } from './discovery.js';
+import { discoverAuthServerMetadata, toInternalUrl, toOAuthMetadata } from './discovery.js';
 import { JwksTokenVerifier } from './verifier.js';
 
 /**
@@ -23,8 +23,14 @@ export async function buildAuthContext(config: Config): Promise<AuthContext | un
     throw new Error('MCP_RESOURCE_URL is required when AUTH_ISSUER is set (canonical server URI).');
   }
 
-  const metadata = await discoverAuthServerMetadata(config.authIssuer);
-  const jwksUrl = new URL(config.authJwksUrl ?? metadata.jwks_uri);
+  const metadata = await discoverAuthServerMetadata(
+    config.authIssuer,
+    config.authInternalIssuerUrl,
+  );
+  const jwksUrl = new URL(
+    config.authJwksUrl ??
+      toInternalUrl(metadata.jwks_uri, config.authIssuer, config.authInternalIssuerUrl),
+  );
 
   return {
     verifier: new JwksTokenVerifier({

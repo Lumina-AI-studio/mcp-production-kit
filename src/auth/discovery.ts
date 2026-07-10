@@ -21,6 +21,16 @@ const asMetadataSchema = z
 
 export type AuthServerMetadata = z.infer<typeof asMetadataSchema>;
 
+/** Swap the public issuer prefix for the internal base URL, if configured. */
+export function toInternalUrl(
+  publicUrl: string,
+  issuer: string,
+  internalIssuerUrl: string | undefined,
+): string {
+  if (!internalIssuerUrl || !publicUrl.startsWith(issuer)) return publicUrl;
+  return internalIssuerUrl.replace(/\/$/, '') + publicUrl.slice(issuer.replace(/\/$/, '').length);
+}
+
 export function discoveryUrls(issuer: string): string[] {
   const url = new URL(issuer);
   const path = url.pathname.replace(/\/$/, '');
@@ -38,9 +48,13 @@ export function discoveryUrls(issuer: string): string[] {
   ];
 }
 
-export async function discoverAuthServerMetadata(issuer: string): Promise<AuthServerMetadata> {
+export async function discoverAuthServerMetadata(
+  issuer: string,
+  internalIssuerUrl?: string,
+): Promise<AuthServerMetadata> {
   const attempts: string[] = [];
-  for (const url of discoveryUrls(issuer)) {
+  for (const publicUrl of discoveryUrls(issuer)) {
+    const url = toInternalUrl(publicUrl, issuer, internalIssuerUrl);
     try {
       const res = await fetch(url, { headers: { accept: 'application/json' } });
       if (!res.ok) {

@@ -27,13 +27,21 @@ tool marketplace. One server, one SaaS, done well.
 
 ## Status
 
-M2 of the [roadmap](docs/ROADMAP.md) is done. The server runs as an OAuth 2.1
+M3 of the [roadmap](docs/ROADMAP.md) is done. The server runs as an OAuth 2.1
 **resource server** per the current MCP auth spec (2025-11-25): RFC 9728
 protected-resource metadata, JWKS token validation with audience binding,
 token scopes driving deny-by-default per-tool RBAC — and every call (allowed,
-failed, or denied) lands in the append-only audit log. Keycloak is the
-default IdP ([adapters/keycloak](adapters/keycloak/README.md)); Auth0 mapping
-included. The runnable Supabase example (M3) is next.
+failed, denied, or rate-limited) lands in the append-only audit log.
+Keycloak is the default IdP ([adapters/keycloak](adapters/keycloak/README.md));
+Auth0 mapping included.
+
+**Try it end-to-end**: `pnpm example:up` boots the
+[Nordwind demo SaaS](example/README.md) — Keycloak (realm pre-imported) +
+Postgres (seeded) + the server with five task-oriented tools — and an MCP
+client can connect through the full OAuth flow. Rate limiting is on by
+default (120 read / 20 write calls per minute per actor+tool; `RATE_LIMIT_*`
+env vars tune it). Tool-selection [evals](docs/tool-design.md#5-evals) run
+with `ANTHROPIC_API_KEY=… pnpm evals`.
 
 ## Layout
 
@@ -43,10 +51,10 @@ src/tools/           tool registry — zod schemas, task-oriented tools
 src/auth/            OAuth 2.1 resource server (JWKS, audience binding)
 src/rbac/            per-tool scope map, deny-by-default
 src/audit/           structured audit middleware, append-only sink
-src/rate-limit/      per-client + per-tool limits                     (M3)
+src/rate-limit/      per-client + per-tool token-bucket limits
 src/observability/   OpenTelemetry, health endpoints                  (M1)
 adapters/            IdP adapters: Keycloak (default), Auth0, WorkOS
-example/             Supabase demo SaaS, 5 tools                      (M3)
+example/             Nordwind demo SaaS: 5 tools, Keycloak, Postgres
 test/                vitest + MCP Inspector scripts + tool evals
 deploy/              Dockerfile, compose, Hetzner runbook             (M1)
 docs/                tool-design guide, adaptation guide, SECURITY.md

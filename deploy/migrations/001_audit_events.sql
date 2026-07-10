@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS audit_events (
   actor       TEXT        NOT NULL,
   tool        TEXT        NOT NULL,
   args_hash   TEXT        NOT NULL,
-  status      TEXT        NOT NULL CHECK (status IN ('ok', 'error', 'denied')),
+  status      TEXT        NOT NULL CHECK (status IN ('ok', 'error', 'denied', 'rate_limited')),
   latency_ms  INTEGER     NOT NULL,
   trace_id    TEXT        NOT NULL,
   session_id  TEXT,

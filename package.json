@@ -22,7 +22,10 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "example:up": "echo 'example:up arrives in M3 (Supabase demo SaaS)' && exit 1"
+    "evals": "vitest run test/evals/evals.test.ts",
+    "build:example": "tsc -p tsconfig.example.json",
+    "example:up": "docker compose -f example/docker-compose.yml up --build",
+    "example:down": "docker compose -f example/docker-compose.yml down"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

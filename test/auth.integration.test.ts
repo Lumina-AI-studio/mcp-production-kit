@@ -56,6 +56,10 @@ describe('OAuth 2.1 resource server (M2)', () => {
     authIssuer: ISSUER,
     resourceUrl: RESOURCE,
     authJwksUrl: undefined,
+    authInternalIssuerUrl: undefined,
+    rateLimitReadPerMinute: 120,
+    rateLimitWritePerMinute: 20,
+    rateLimitEnabled: true,
   };
 
   beforeAll(async () => {
