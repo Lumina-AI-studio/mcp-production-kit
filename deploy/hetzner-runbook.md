@@ -46,8 +46,11 @@ Edit `deploy/docker-compose.yml` for production:
 - `MCP_ALLOWED_HOSTS: 'mcp.yourdomain.com'` (Host header seen behind Caddy)
 - change the Postgres password; keep the audit DB unreachable from outside
   (compose default: no published port — leave it that way)
-- **remove `DEV_GRANTED_SCOPES`** once M2 auth is wired; until then it is the
-  only thing granting scopes, so treat the deployment as non-production
+- **set `AUTH_ISSUER` + `MCP_RESOURCE_URL`** to enable OAuth (see
+  [adapters/keycloak](../adapters/keycloak/README.md)) and **remove
+  `DEV_GRANTED_SCOPES`** — that variable is a dev-mode escape hatch that only
+  has effect while `AUTH_ISSUER` is unset, and production always runs with
+  auth on
 - change the server port mapping to `'127.0.0.1:3000:3000'` so only Caddy
   can reach it
 

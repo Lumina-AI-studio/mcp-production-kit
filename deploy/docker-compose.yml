@@ -14,7 +14,8 @@ services:
       AUDIT_DATABASE_URL: postgres://mcp:mcp@audit-db:5432/mcp_audit
       # Host header allowlist — replace with your public hostname in production.
       MCP_ALLOWED_HOSTS: 'localhost:3000,127.0.0.1:3000'
-      # M1 dev-only escape hatch until OAuth lands in M2. Remove in production.
+      # Dev-mode scopes — only honored while AUTH_ISSUER is unset. In
+      # production set AUTH_ISSUER (OAuth on) and remove this line.
       DEV_GRANTED_SCOPES: 'status:read'
     depends_on:
       audit-db:

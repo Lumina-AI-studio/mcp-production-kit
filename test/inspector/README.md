@@ -4,8 +4,8 @@
   call `get_service_status`. Run against a locally started server
   (`DEV_GRANTED_SCOPES=status:read pnpm dev`).
 
-M3 adds full scripted flows against the example server plus the per-tool
-eval harness.
+The full scripted flow against the example stack is `m3-flow.sh`; the
+per-tool eval harness lives in `test/evals/`.
 
 Note: the same connect → list → call → audit-row assertion also runs fully
 in-process in `test/server.integration.test.ts` via the official SDK client,

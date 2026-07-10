@@ -1,5 +1,9 @@
 # Roadmap
 
+> Status: milestones M0–M4 below are **complete** — this document is kept as
+> the build record and acceptance criteria. Post-launch work is tracked in
+> GitHub issues.
+
 mcp-production-kit is a clone-and-adapt TypeScript repository: a remote MCP
 server (Streamable HTTP, official `@modelcontextprotocol/sdk`) with OAuth 2.1
 resource-server auth, per-tool RBAC, structured audit logging, rate limiting,
@@ -21,13 +25,13 @@ mcp-production-kit/
 │  ├─ audit/             # structured audit middleware: actor, tool, args hash,
 │  │                     #   result status, latency, trace id — append-only sink
 │  ├─ rate-limit/        # per-client + per-tool limits
-│  └─ observability/     # OpenTelemetry traces/metrics, health endpoints
+│  └─ observability/     # trace ids, health endpoints (OpenTelemetry planned)
 ├─ adapters/             # IdP adapters: keycloak/ (EU self-host, default),
-│                        #   auth0/, workos/
-├─ example/              # demo SaaS (Supabase): 5 tools — 3 read, 2 write w/ confirm
+│                        #   auth0/ (workos/ planned)
+├─ example/              # Nordwind demo SaaS (Postgres): 5 tools — 3 read, 2 write w/ confirm
 ├─ test/                 # vitest + MCP Inspector scripted checks + tool evals
 ├─ deploy/               # Dockerfile, compose, Hetzner runbook, Fly.io alt
-└─ docs/                 # SECURITY.md, tool-design guide, adaptation guide
+└─ docs/                 # tool-design guide, adaptation guide (SECURITY.md at root)
 ```
 
 ## Design principles (see docs/tool-design.md)
@@ -48,7 +52,7 @@ positioning statement. ✅ Green CI.
 
 **M1 — Core server + audit.** Streamable HTTP server via official SDK; tool
 registry with zod; audit middleware writing structured events to
-Postgres/Supabase + stdout JSON; health checks; Docker + Hetzner runbook.
+Postgres + stdout JSON; health checks; Docker + Hetzner runbook.
 ✅ Done when MCP Inspector connects, calls a demo tool, and the audit row
 contains actor/tool/args-hash/status/latency.
 
@@ -58,7 +62,7 @@ RBAC map, deny-by-default. Keycloak adapter first (EU self-host), then Auth0.
 ✅ Done when an unscoped token can list but not call a write tool, and the
 test suite proves it.
 
-**M3 — Example + DX.** Supabase demo SaaS with 5 task-oriented tools; scripted
+**M3 — Example + DX.** Nordwind demo SaaS (Postgres) with 5 task-oriented tools; scripted
 MCP Inspector test flows; per-tool eval harness (given prompt X, agent selects
 tool Y); rate limiting. ✅ Done when `pnpm example:up` gives a working authed
 server a Claude client can use end-to-end.

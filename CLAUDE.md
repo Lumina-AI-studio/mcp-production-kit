@@ -20,7 +20,7 @@ EU (Hetzner) deployment. MIT.
 - Node 22, ESM, strict TS, zod; @modelcontextprotocol/sdk (official).
 - vitest; MCP Inspector scripts in /test/inspector.
 - `pnpm build` / `pnpm test` / `pnpm lint` green before commit.
-- `pnpm example:up` boots the Supabase demo + server.
+- `pnpm example:up` boots the Nordwind demo (Keycloak + Postgres) + server.
 
 ## Testing
 - Every auth change needs a negative test (wrong scope → 403 path).

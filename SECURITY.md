@@ -18,4 +18,4 @@ security reports. You should receive a response within 72 hours.
 - Every tool call produces an append-only audit event; raw arguments are
   hashed, not stored.
 
-Details: [mcp-authorization-spec-summary.md](mcp-authorization-spec-summary.md).
+Details: [mcp-authorization-spec-summary.md](docs/mcp-authorization-spec-summary.md).

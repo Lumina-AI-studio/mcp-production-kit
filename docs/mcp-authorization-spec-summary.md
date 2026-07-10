@@ -8,13 +8,13 @@ a snapshot, not a source of truth.
 ## Our role
 
 This template is the **MCP server = OAuth 2.1 resource server**. We validate
-tokens; we never issue them. The authorization server (Keycloak/Auth0/WorkOS
+tokens; we never issue them. The authorization server (Keycloak or Auth0
 via `adapters/`) is external. Base standards: OAuth 2.1
 (draft-ietf-oauth-v2-1-13), RFC 9728 (Protected Resource Metadata), RFC 8414
 (AS Metadata), RFC 8707 (Resource Indicators), plus the new Client ID Metadata
 Documents draft.
 
-## MUSTs for the server (drive M2)
+## MUSTs for the server (implemented in `src/auth`)
 
 1. **Protected Resource Metadata (RFC 9728) is mandatory.** Serve it at
    `/.well-known/oauth-protected-resource` (root or endpoint-path variant),

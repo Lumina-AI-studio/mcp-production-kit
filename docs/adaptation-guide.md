@@ -1,9 +1,8 @@
 # Adaptation guide
 
-How to turn this template into *your* SaaS's MCP server. Full guide lands
-with M3; the intended flow:
+How to turn this template into *your* SaaS's MCP server:
 
-1. **Map your API surface to tasks** (docs/tool-design.md): pick ≤10
+1. **Map your API surface to tasks** ([tool-design.md](tool-design.md)): pick ≤10
    task-oriented tools; mark each read or write.
 2. **Define the scope model**: one read scope per domain area, dedicated
    write scopes; fill the RBAC scope map.
