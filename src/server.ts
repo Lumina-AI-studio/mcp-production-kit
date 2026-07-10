@@ -13,6 +13,7 @@ import { executeTool } from './audit/execute.js';
 import type { AuditSink } from './audit/sink.js';
 import type { Config } from './config.js';
 import { healthPayload, newTraceId } from './observability/index.js';
+import type { RateLimiter } from './rate-limit/index.js';
 import { scopeMapFromTools } from './rbac/index.js';
 import type { ToolRegistry } from './tools/index.js';
 import { SERVER_NAME, SERVER_VERSION } from './version.js';
@@ -23,6 +24,8 @@ export interface ServerDeps {
   config: Config;
   /** OAuth 2.1 resource-server context; absent = dev mode (M1 behavior). */
   auth?: AuthContext | undefined;
+  /** Absent = rate limiting disabled. */
+  rateLimiter?: RateLimiter | undefined;
 }
 
 /**
@@ -55,7 +58,7 @@ export function createMcpServer(deps: ServerDeps): McpServer {
           args,
           { actor, traceId: newTraceId(), sessionId: extra.sessionId },
           grantedScopes,
-          { scopeMap, sink: deps.sink },
+          { scopeMap, sink: deps.sink, rateLimiter: deps.rateLimiter },
         );
 
         if (!outcome.ok) {

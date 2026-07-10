@@ -22,6 +22,10 @@ describe('Streamable HTTP server (end-to-end via SDK client)', () => {
     authIssuer: undefined,
     resourceUrl: undefined,
     authJwksUrl: undefined,
+    authInternalIssuerUrl: undefined,
+    rateLimitReadPerMinute: 120,
+    rateLimitWritePerMinute: 20,
+    rateLimitEnabled: true,
   };
 
   let running: RunningApp;

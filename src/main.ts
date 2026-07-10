@@ -1,6 +1,7 @@
 import { buildAuthContext } from './auth/index.js';
 import { MultiSink, PostgresAuditSink, StdoutJsonSink, type AuditSink } from './audit/sink.js';
 import { loadConfig } from './config.js';
+import { rateLimiterFromConfig } from './rate-limit/index.js';
 import { createApp } from './server.js';
 import { defaultRegistry, registerTool } from './tools/index.js';
 import { getServiceStatus } from './tools/status.js';
@@ -31,7 +32,15 @@ if (auth) {
   );
 }
 
-const { app, closeSessions } = createApp({ registry: defaultRegistry, sink, config, auth });
+const rateLimiter = config.rateLimitEnabled ? rateLimiterFromConfig(config) : undefined;
+
+const { app, closeSessions } = createApp({
+  registry: defaultRegistry,
+  sink,
+  config,
+  auth,
+  rateLimiter,
+});
 
 const httpServer = app.listen(config.port, config.host, () => {
   process.stderr.write(

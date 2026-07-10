@@ -1,3 +1,4 @@
+import type { RateLimiter } from '../rate-limit/index.js';
 import { isToolAllowed, type ScopeMap } from '../rbac/index.js';
 import type { ToolContext, ToolDefinition } from '../tools/index.js';
 import { hashArgs, type AuditEvent } from './index.js';
@@ -14,13 +15,19 @@ export interface ExecutionResult {
 export interface ExecutionDeps {
   scopeMap: ScopeMap;
   sink: AuditSink;
+  /** Absent = rate limiting disabled. */
+  rateLimiter?: RateLimiter;
 }
 
 /**
  * The one code path through which every tool call goes (hard rule: every
  * tool call MUST produce an audit event). Order:
  *
- *   RBAC (deny-by-default) → handler → audit event (ok | error | denied)
+ *   RBAC (deny-by-default) → rate limit → handler
+ *   → audit event (ok | error | denied | rate_limited)
+ *
+ * RBAC runs first so a caller without the required scope always gets the
+ * scope-denial message and never consumes rate-limit budget.
  *
  * The audit write is not best-effort: if the sink fails, the event is dumped
  * to stderr as a last resort and the call is reported as failed, so a broken
@@ -65,6 +72,19 @@ export async function executeTool(
         tool.requiredScopes.join(', ') || 'unmapped — tool is not callable'
       }).`,
     };
+  }
+
+  if (deps.rateLimiter) {
+    const rateLimit = deps.rateLimiter.check(ctx.actor, tool);
+    if (!rateLimit.allowed) {
+      await emit('rate_limited');
+      return {
+        ok: false,
+        errorMessage: `Rate limit exceeded for tool "${tool.name}" — retry in ${
+          rateLimit.retryAfterSeconds
+        }s.`,
+      };
+    }
   }
 
   try {

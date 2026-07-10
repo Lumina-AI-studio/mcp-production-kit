@@ -11,7 +11,7 @@ export interface AuditEvent {
   actor: string;
   tool: string;
   argsHash: string;
-  status: 'ok' | 'error' | 'denied';
+  status: 'ok' | 'error' | 'denied' | 'rate_limited';
   latencyMs: number;
   traceId: string;
   sessionId?: string | undefined;
