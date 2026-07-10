@@ -78,6 +78,35 @@ describe('RateLimiter bucket math', () => {
     // actor-b has its own bucket, unaffected by actor-a's exhaustion.
     expect(limiter.check('actor-b', readTool).allowed).toBe(true);
   });
+
+  it('enforces maxBuckets as a hard cap, evicting the least-recently-used actor', () => {
+    let now = 0;
+    const limiter = new RateLimiter({
+      readPerMinute: 1,
+      writePerMinute: 1,
+      now: () => now,
+      maxBuckets: 2,
+    });
+
+    // Three distinct actors, clock advancing so LRU order is unambiguous.
+    now = 1000;
+    expect(limiter.check('a1', readTool).allowed).toBe(true); // a1 bucket, now drained
+    now = 2000;
+    expect(limiter.check('a2', readTool).allowed).toBe(true); // a2 bucket; at the cap
+    now = 3000;
+    expect(limiter.check('a3', readTool).allowed).toBe(true); // inserts a3 → evicts LRU a1
+
+    // A flood of new actors is never *rejected* for lack of a bucket — a1
+    // comes back as a fresh full bucket (had its drained bucket survived,
+    // this would be denied). Inserting a1 evicts the now-LRU a2.
+    now = 4000;
+    expect(limiter.check('a1', readTool).allowed).toBe(true);
+
+    // a3's bucket survived and is still drained → denied, proving the cap
+    // evicts selectively rather than wiping everything.
+    now = 4001;
+    expect(limiter.check('a3', readTool).allowed).toBe(false);
+  });
 });
 
 describe('rate limiting via executeTool', () => {

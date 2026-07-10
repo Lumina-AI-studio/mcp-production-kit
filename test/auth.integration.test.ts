@@ -115,6 +115,7 @@ describe('OAuth 2.1 resource server (M2)', () => {
     aud?: string;
     iss?: string;
     expiresIn?: string;
+    sub?: string;
   }
 
   async function mintToken(overrides: MintOverrides = {}): Promise<string> {
@@ -122,7 +123,7 @@ describe('OAuth 2.1 resource server (M2)', () => {
       .setProtectedHeader({ alg: 'RS256', kid: 'test-key' })
       .setIssuer(overrides.iss ?? ISSUER)
       .setAudience(overrides.aud ?? RESOURCE)
-      .setSubject('user-42')
+      .setSubject(overrides.sub ?? 'user-42')
       .setIssuedAt()
       .setExpirationTime(overrides.expiresIn ?? '5m')
       .sign(privateKey);
@@ -153,6 +154,70 @@ describe('OAuth 2.1 resource server (M2)', () => {
     expect(prm.scopes_supported).toEqual(
       expect.arrayContaining(['status:read', 'refunds:write']),
     );
+  });
+
+  it('401s GET /mcp (the SSE stream) without a token', async () => {
+    const res = await fetch(baseUrl, { method: 'GET', headers: { accept: 'text/event-stream' } });
+    expect(res.status).toBe(401);
+    expect(res.headers.get('www-authenticate') ?? '').toContain('resource_metadata=');
+  });
+
+  it('401s DELETE /mcp (session termination) without a token', async () => {
+    const res = await fetch(baseUrl, { method: 'DELETE' });
+    expect(res.status).toBe(401);
+  });
+
+  it('binds a session to its creator — a different valid principal cannot drive it', async () => {
+    const tokenA = await mintToken({ sub: 'user-alice' });
+    const tokenB = await mintToken({ sub: 'user-bob' });
+
+    // Alice initializes a session; capture its id from the response header.
+    const initRes = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${tokenA}`,
+        'content-type': 'application/json',
+        accept: 'application/json, text/event-stream',
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'A', version: '0' } },
+      }),
+    });
+    expect(initRes.status).toBe(200);
+    const sid = initRes.headers.get('mcp-session-id');
+    expect(sid).toBeTruthy();
+
+    const bobHeaders = {
+      authorization: `Bearer ${tokenB}`,
+      'mcp-session-id': sid as string,
+      accept: 'application/json, text/event-stream',
+      'content-type': 'application/json',
+    };
+
+    // Bob's token is perfectly valid, but he does not own Alice's session:
+    // he can neither POST into it, attach to its stream, nor terminate it.
+    const bobPost = await fetch(baseUrl, {
+      method: 'POST',
+      headers: bobHeaders,
+      body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list', params: {} }),
+    });
+    expect(bobPost.status).toBe(403);
+
+    const bobGet = await fetch(baseUrl, { method: 'GET', headers: bobHeaders });
+    expect(bobGet.status).toBe(403);
+
+    const bobDelete = await fetch(baseUrl, { method: 'DELETE', headers: bobHeaders });
+    expect(bobDelete.status).toBe(403);
+
+    // Alice still owns it and can terminate her own session.
+    const aliceDelete = await fetch(baseUrl, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${tokenA}`, 'mcp-session-id': sid as string },
+    });
+    expect([200, 204]).toContain(aliceDelete.status);
   });
 
   it('401s requests without a token, with WWW-Authenticate → resource_metadata', async () => {

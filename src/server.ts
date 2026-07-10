@@ -87,7 +87,25 @@ export function createApp(deps: ServerDeps): RunningApp {
   const app = express();
   app.use(express.json());
 
-  const transports = new Map<string, StreamableHTTPServerTransport>();
+  // Each session is owned by the principal that initialized it. Every later
+  // request on that session must present the same identity, so a caller
+  // holding a different but validly-signed token for this resource cannot
+  // attach to, drive, or terminate someone else's session by guessing/
+  // observing its session id.
+  interface Session {
+    transport: StreamableHTTPServerTransport;
+    owner: string;
+  }
+  const transports = new Map<string, Session>();
+
+  // Identity of the caller, derived the same way as the audit actor. In dev
+  // mode (no auth) req.auth is undefined and every caller is 'anonymous',
+  // so ownership checks are a no-op — matching the unauthenticated model.
+  const principalOf = (req: Request): string => {
+    const auth = req.auth;
+    const sub = auth?.extra?.['sub'];
+    return (typeof sub === 'string' ? sub : undefined) ?? auth?.clientId ?? 'anonymous';
+  };
 
   if (deps.auth) {
     // RFC 9728 Protected Resource Metadata (+ mirrored AS metadata) at
@@ -130,7 +148,11 @@ export function createApp(deps: ServerDeps): RunningApp {
       const existing = sessionId ? transports.get(sessionId) : undefined;
 
       if (existing) {
-        await existing.handleRequest(req, res, req.body);
+        if (existing.owner !== principalOf(req)) {
+          res.status(403).json(jsonRpcError(-32003, 'Session belongs to a different principal'));
+          return;
+        }
+        await existing.transport.handleRequest(req, res, req.body);
         return;
       }
       if (sessionId) {
@@ -142,10 +164,11 @@ export function createApp(deps: ServerDeps): RunningApp {
         return;
       }
 
+      const owner = principalOf(req);
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (id) => {
-          transports.set(id, transport);
+          transports.set(id, { transport, owner });
         },
         enableDnsRebindingProtection: true,
         allowedHosts: deps.config.allowedHosts,
@@ -165,12 +188,16 @@ export function createApp(deps: ServerDeps): RunningApp {
 
   const handleSessionRequest = (req: Request, res: Response): void => {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
-    const transport = sessionId ? transports.get(sessionId) : undefined;
-    if (!transport) {
+    const session = sessionId ? transports.get(sessionId) : undefined;
+    if (!session) {
       res.status(sessionId ? 404 : 400).send('Missing or unknown mcp-session-id');
       return;
     }
-    void transport.handleRequest(req, res).catch(() => {
+    if (session.owner !== principalOf(req)) {
+      res.status(403).send('Session belongs to a different principal');
+      return;
+    }
+    void session.transport.handleRequest(req, res).catch(() => {
       if (!res.headersSent) res.status(500).end();
     });
   };
@@ -182,7 +209,7 @@ export function createApp(deps: ServerDeps): RunningApp {
   return {
     app,
     closeSessions: async () => {
-      await Promise.all([...transports.values()].map((t) => t.close()));
+      await Promise.all([...transports.values()].map((s) => s.transport.close()));
       transports.clear();
     },
   };
