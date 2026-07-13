@@ -137,6 +137,20 @@ Easy to conflate; they are all different:
 | `demo-agent` / `demo-secret` | OAuth **client** (client-credentials) | the curl/CLI path above |
 | `admin` / `admin` | Keycloak **admin console** | `http://localhost:8080` |
 
+### Inspector OAuth troubleshooting
+
+| Toast / Keycloak error | Cause | Fix |
+| --- | --- | --- |
+| `Protected resource http://127.0.0.1:3000/mcp does not match expected http://localhost:3000/mcp` | Connected via `127.0.0.1` | Use `http://localhost:3000/mcp` |
+| `Client not found` (Keycloak page) | OAuth Client ID left as the login name (`demo`) or blank | Set Client ID to `inspector` |
+| `Invalid scopes …` | Client ID is right, but a requested scope isn't assigned to the client | Fixed in this realm (the Inspector requests `offline_access`, now assigned to `inspector`); if you tailor the realm, keep `offline_access` on any interactive client |
+
+If OAuth is more friction than you want, skip it: mint a token with the
+client-credentials `curl` above and paste it into the Inspector's
+**Authentication → Bearer Token** field. Tokens last 5 minutes; re-mint as
+needed. (You won't see scope *denials* that way — the `demo-agent` token
+carries all six scopes.)
+
 ## Where the audit rows live
 
 Every tool call — ok, error, denied, or rate_limited — writes an append-only row to
