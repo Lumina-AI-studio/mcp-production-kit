@@ -29,9 +29,11 @@ pnpm example:up      # Keycloak (realm pre-imported) + Postgres (seeded) + serve
 ```
 
 Then point the MCP Inspector (`npx @modelcontextprotocol/inspector`) at
-`http://localhost:3000/mcp`: it discovers the authorization server via RFC
-9728, runs the OAuth 2.1 + PKCE flow (log in as `demo`/`demo`), and calls the
-five task-oriented tools of the bundled [Nordwind demo SaaS](example/README.md).
+`http://localhost:3000/mcp` (use `localhost`, not `127.0.0.1` — it must match
+the server's resource identity), set the OAuth **Client ID** to `inspector`,
+and Connect: it discovers the authorization server via RFC 9728, runs the
+OAuth 2.1 + PKCE flow (log in as `demo`/`demo`), and calls the five
+task-oriented tools of the bundled [Nordwind demo SaaS](example/README.md).
 Every call — allowed, failed, denied, or rate-limited — lands as an
 append-only audit row you can query in Postgres. The full walkthrough,
 including raw curl JSON-RPC, is in [example/README.md](example/README.md).
