@@ -214,7 +214,8 @@
           "value": "demo",
           "temporary": false
         }
-      ]
+      ],
+      "realmRoles": ["default-roles-mcp-example"]
     }
   ]
 }
