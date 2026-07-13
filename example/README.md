@@ -105,12 +105,51 @@ read → write, with assertions) is `test/inspector/m3-flow.sh`.
 npx @modelcontextprotocol/inspector
 ```
 
-Point it at `http://localhost:3000/mcp` (Streamable HTTP). It discovers the
-authorization server via RFC 9728 Protected Resource Metadata and runs the
-OAuth 2.1 code flow against the public `inspector` client (PKCE S256, redirect
-URIs on `localhost:6274`). Log in as **`demo` / `demo`** and select the tool
-scopes you want to grant. Calling a write tool without its scope is **denied
+In the Inspector:
+
+1. **Transport type:** Streamable HTTP.
+2. **URL:** `http://localhost:3000/mcp` — use `localhost`, **not** `127.0.0.1`.
+   The server's resource identity (and every token's audience) is
+   `http://localhost:3000/mcp`; connecting via `127.0.0.1` fails the OAuth
+   resource check with *"Protected resource … does not match expected …"*
+   because `localhost` and `127.0.0.1` are different resources to OAuth.
+3. **Client ID** (in the Authentication / OAuth panel): **`inspector`**. This
+   is the pre-registered OAuth *client* — it is **not** the same as the login
+   below. The realm ships no dynamic client registration, so this field must
+   be set or Keycloak returns *"Client not found"*.
+4. **Connect**, then on the Keycloak page **log in as `demo` / `demo`** and
+   grant the scopes you want.
+
+It discovers the authorization server via RFC 9728 Protected Resource Metadata
+and runs the OAuth 2.1 + PKCE (S256) code flow (redirect URIs on
+`localhost:6274`). Because the `inspector` client's scopes are *optional*, you
+can grant only some — then calling a tool whose scope you withheld is **denied
 and audited** with `status=denied`.
+
+### Who's who — the demo has four separate identities
+
+Easy to conflate; they are all different:
+
+| Value | What it is | Used where |
+| --- | --- | --- |
+| `inspector` | OAuth **client id** (public, PKCE) | Inspector → "Client ID" field |
+| `demo` / `demo` | **user login** | the Keycloak sign-in page |
+| `demo-agent` / `demo-secret` | OAuth **client** (client-credentials) | the curl/CLI path above |
+| `admin` / `admin` | Keycloak **admin console** | `http://localhost:8080` |
+
+### Inspector OAuth troubleshooting
+
+| Toast / Keycloak error | Cause | Fix |
+| --- | --- | --- |
+| `Protected resource http://127.0.0.1:3000/mcp does not match expected http://localhost:3000/mcp` | Connected via `127.0.0.1` | Use `http://localhost:3000/mcp` |
+| `Client not found` (Keycloak page) | OAuth Client ID left as the login name (`demo`) or blank | Set Client ID to `inspector` |
+| `Invalid scopes …` | Client ID is right, but a requested scope isn't assigned to the client | Fixed in this realm (the Inspector requests `offline_access`, now assigned to `inspector`); if you tailor the realm, keep `offline_access` on any interactive client |
+
+If OAuth is more friction than you want, skip it: mint a token with the
+client-credentials `curl` above and paste it into the Inspector's
+**Authentication → Bearer Token** field. Tokens last 5 minutes; re-mint as
+needed. (You won't see scope *denials* that way — the `demo-agent` token
+carries all six scopes.)
 
 ## Where the audit rows live
 

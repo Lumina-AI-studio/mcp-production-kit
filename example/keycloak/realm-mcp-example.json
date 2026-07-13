@@ -168,6 +168,7 @@
       },
       "defaultClientScopes": [],
       "optionalClientScopes": [
+        "offline_access",
         "customers:read",
         "orders:read",
         "invoices:read",
@@ -213,7 +214,8 @@
           "value": "demo",
           "temporary": false
         }
-      ]
+      ],
+      "realmRoles": ["default-roles-mcp-example"]
     }
   ]
 }
